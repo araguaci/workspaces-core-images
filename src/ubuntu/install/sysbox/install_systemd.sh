@@ -2,7 +2,7 @@
 set -ex
 
 # Setup systemd based on distro type
-if [[ "${DISTRO}" == @(ubuntu|debian|parrotos5|kali) ]] ; then
+if [[ "${DISTRO}" == @(ubuntu|debian|parrotos6|kali) ]] ; then
   # Install deps
   apt-get update
   apt-get install -y --no-install-recommends \
@@ -15,7 +15,7 @@ if [[ "${DISTRO}" == @(ubuntu|debian|parrotos5|kali) ]] ; then
     systemd \
     systemd-sysv \
     udev
-elif [[ "${DISTRO}" == @(oracle8|oracle9|rockylinux9|rockylinux8|almalinux9|almalinux8|fedora37|fedora38) ]]; then
+elif [[ "${DISTRO}" == @(oracle8|oracle9|rockylinux9|rockylinux8|almalinux9|almalinux8|fedora37|fedora38|fedora39|fedora40) ]]; then
   # Install deps
   dnf install -y \
     dbus \

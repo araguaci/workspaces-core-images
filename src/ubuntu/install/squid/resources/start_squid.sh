@@ -2,6 +2,8 @@
 set -ex
 
 {
+    /usr/bin/desktop_ready
+
     IP=$(ip route get 1.1.1.1 | grep -oP "src \\K\\S+")
 
     mkdir -p /tmp/working_certs
@@ -16,7 +18,7 @@ set -ex
     elif [ -f /etc/fedora-release ]; then
         DISTRO=fedora
     elif [ -f /etc/dpkg/origins/parrot ]; then
-        DISTRO=parrotos5
+        DISTRO=parrotos6
     elif [ -f /etc/alpine-release ]; then
         DISTRO=alpine
     fi
@@ -40,6 +42,7 @@ set -ex
     else
         cp /usr/local/squid/etc/ssl_cert/squid.pem ${CERT_FILE}
     fi
+    chmod 644 ${CERT_FILE}
 
     if [[ "${DISTRO}" == @(centos|oracle7|fedora) ]]; then
         update-ca-trust
@@ -68,7 +71,7 @@ set -ex
     chown $MEMCACHE_USER:$MEMCACHE_USER /etc/sasl2/memcached-sasldb2
 
 
-    if [[ "${DISTRO}" == @(centos|oracle7|fedora|parrotos5|alpine) ]]; then
+    if [[ "${DISTRO}" == @(centos|oracle7|fedora|parrotos6|alpine) ]]; then
         /usr/bin/memcached -u $MEMCACHE_USER &
     elif [ "${DISTRO}" == "opensuse" ]; then
         /usr/sbin/memcached -u $MEMCACHE_USER &

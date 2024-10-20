@@ -30,7 +30,7 @@ EOL
 }
 
 echo "Install Xfce4 UI components"
-if [[ "${DISTRO}" != @(centos|oracle7|oracle8|opensuse|fedora37|fedora38|oracle9|rockylinux9|rockylinux8|almalinux8|almalinux9|alpine) ]]; then
+if [[ "${DISTRO}" != @(centos|oracle7|oracle8|opensuse|fedora37|fedora38|fedora39|fedora40|oracle9|rockylinux9|rockylinux8|almalinux8|almalinux9|alpine) ]]; then
   apt-get update
 fi
 
@@ -38,8 +38,8 @@ if [ "${DISTRO}" == "kali" ]; then
   apt-get install --no-install-recommends -y \
     atril \
     dbus-x11 \
+    libnotify-bin \
     engrampa \
-    kali-debtags \
     kali-defaults-desktop \
     kali-menu \
     kali-themes \
@@ -73,7 +73,7 @@ elif [[ "$DISTRO" = @(ubuntu|debian) ]]; then
     xfce4-terminal \
     xterm \
     xclip
-elif [[ "$DISTRO" = "parrotos5" ]]; then
+elif [[ "$DISTRO" = "parrotos6" ]]; then
   apt-get install -y \
     dbus-x11 \
     desktop-base \
@@ -84,7 +84,8 @@ elif [[ "$DISTRO" = "parrotos5" ]]; then
     supervisor \
     xclip \
     xfce4 \
-    xfce4-terminal
+    xfce4-terminal \
+    xfce4-whiskermenu-plugin
   echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
   locale-gen
 elif [[ "${DISTRO}" == @(centos|oracle7) ]]; then
@@ -133,6 +134,14 @@ elif [[ "$DISTRO" == @(rockylinux9|almalinux9) ]]; then
     xclip \
     xfce4-notifyd \
     xset
+
+    # fix for xfce4-notifyd not being rachable
+    dbus-uuidgen --ensure
+    cat > /usr/share/dbus-1/services/org.freedesktop.Notifications.service <<EOL
+[D-BUS Service]
+Name=org.freedesktop.Notifications
+Exec=/usr/lib64/xfce4/notifyd/xfce4-notifyd
+EOL
 elif [[ "$DISTRO" == @(rockylinux8|almalinux8) ]]; then
   dnf config-manager --set-enabled powertools
   dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
@@ -144,15 +153,26 @@ elif [[ "$DISTRO" == @(rockylinux8|almalinux8) ]]; then
     xclip \
     xfce4-notifyd \
     xset
+
+    # fix for xfce4-notifyd not being rachable
+    dbus-uuidgen --ensure
+  cat > /usr/share/dbus-1/services/org.freedesktop.Notifications.service <<EOL
+[D-BUS Service]
+Name=org.freedesktop.Notifications
+Exec=/usr/lib64/xfce4/notifyd/xfce4-notifyd
+EOL
 elif [ "$DISTRO" = "opensuse" ]; then
   zypper install -yn -t pattern xfce
   zypper install -yn \
     gvfs \
     xclip \
-    xfce4-notifyd \
     xfce4-terminal \
+    xfce4-notifyd \
+	  kdialog \
     xset
-elif [[ "$DISTRO" = @(fedora37|fedora38) ]]; then
+  # Pidof is no longer shipped in OpenSuse
+  ln -s /usr/bin/pgrep /usr/bin/pidof
+elif [[ "$DISTRO" = @(fedora37|fedora38|fedora39|fedora40) ]]; then
   dnf group install xfce -y
   dnf install -y \
     gvfs \
@@ -160,6 +180,14 @@ elif [[ "$DISTRO" = @(fedora37|fedora38) ]]; then
     xclip \
     xfce4-notifyd \
     xset
+
+  # fix for xfce4-notifyd not being rachable
+  dbus-uuidgen --ensure
+  cat > /usr/share/dbus-1/services/org.freedesktop.Notifications.service <<EOL
+[D-BUS Service]
+Name=org.freedesktop.Notifications
+Exec=/usr/lib64/xfce4/notifyd/xfce4-notifyd
+EOL
 elif [ "$DISTRO" = "alpine" ]; then
   apk add --no-cache \
     dbus-x11 \
@@ -173,11 +201,20 @@ elif [ "$DISTRO" = "alpine" ]; then
     mousepad \
     thunar \
     xfce4 \
-    xfce4-terminal
+    xfce4-terminal \
+    xfce4-notifyd
   rm -f /usr/share/xfce4/panel/plugins/power-manager-plugin.desktop
+
+  # fix for xfce4-notifyd not being rachable
+  dbus-uuidgen --ensure
+  cat > /usr/share/dbus-1/services/org.freedesktop.Notifications.service <<EOL
+[D-BUS Service]
+Name=org.freedesktop.Notifications
+Exec=/usr/lib/xfce4/notifyd/xfce4-notifyd
+EOL
 fi
 
-if [[ "${DISTRO}" != @(centos|oracle7|oracle8|fedora37|fedora38|oracle9|rockylinux9|rockylinux8|almalinux8|almalinux9|alpine) ]]; then
+if [[ "${DISTRO}" != @(centos|oracle7|oracle8|fedora37|fedora38|fedora39|fedora40|oracle9|rockylinux9|rockylinux8|almalinux8|almalinux9|alpine) ]]; then
   replace_default_xinit
   if [ "${START_XFCE4}" == "1" ] ; then
     replace_default_99x11_common_start
@@ -201,7 +238,10 @@ chmod +x /usr/bin/execThunar.sh
 
 cat >/usr/bin/desktop_ready <<EOL
 #!/usr/bin/env bash
-until pids=\$(pidof xfce4-session); do sleep .5; done
+if [ -z \${START_DE+x} ]; then \
+  START_DE="xfce4-session"
+fi
+until pids=\$(pidof \${START_DE}); do sleep .5; done
 EOL
 chmod +x /usr/bin/desktop_ready
 

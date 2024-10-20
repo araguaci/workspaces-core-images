@@ -2,20 +2,31 @@
 set -ex
 
 ARCH=$(arch | sed 's/aarch64/arm64/g' | sed 's/x86_64/amd64/g')
+if [[ "${ARCH}" == "arm64" ]]; then
+  LIBSSLDEB=$(curl -sL http://ports.ubuntu.com/pool/main/o/openssl/ | awk -F'(href="|">)' '/libssl1.1.*ubuntu2.[0-9][0-9]_arm64.deb/ {print $4}')
+  LIBSSLRPM=$(curl -sL https://ap.edge.kernel.org/fedora/releases/39/Everything/aarch64/os/Packages/o/ | awk -F'(href="|">)' '/openssl1.1-1/ {print $2}')
+  LIBSSLURL="http://ports.ubuntu.com/pool/main/o/openssl/${LIBSSLDEB}"
+  RPMLIBSSL="https://ap.edge.kernel.org/fedora/releases/39/Everything/aarch64/os/Packages/o/${LIBSSLRPM}"
+else
+  LIBSSLDEB=$(curl -sL http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/ | awk -F'(href="|">)' '/libssl1.1.*ubuntu2.[0-9][0-9]_amd64.deb/ {print $4}')
+  LIBSSLRPM=$(curl -sL https://ap.edge.kernel.org/fedora/releases/39/Everything/x86_64/os/Packages/o/ | awk -F'(href="|">)' '/openssl1.1-1.*x86_64/ {print $2}')
+  LIBSSLURL="http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/${LIBSSLDEB}"
+  RPMLIBSSL="https://ap.edge.kernel.org/fedora/releases/39/Everything/x86_64/os/Packages/o/${LIBSSLRPM}"
+fi
 
 # intall squid
 SQUID_COMMIT='1149fc830c7edcb383eec390cce2beba16befde5'
-if  $(grep -q Jammy /etc/os-release) || $(grep -q Kali /etc/os-release) ; then
+if  $(grep -q Jammy /etc/os-release) || $(grep -q Kali /etc/os-release) || $(grep -q lory /etc/os-release); then
   wget -qO- https://kasmweb-build-artifacts.s3.amazonaws.com/kasm-squid-builder/${SQUID_COMMIT}/output/kasm-squid-builder_${ARCH}.tar.gz | tar -xzf - -C /
-  wget https://kasm-ci.s3.amazonaws.com/libssl1.1.${ARCH}.deb
+  wget ${LIBSSLURL} -O libssl1.1.${ARCH}.deb
   dpkg -i libssl1.1.${ARCH}.deb
   rm -f libssl1.1.${ARCH}.deb
-elif [[ "${DISTRO}" != @(centos|oracle7|oracle8|oracle9|opensuse|fedora37|fedora38|rockylinux9|rockylinux8|almalinux9|almalinux8|alpine) ]] ; then
+elif [[ "${DISTRO}" != @(centos|oracle7|oracle8|oracle9|opensuse|fedora37|fedora38|fedora39|fedora40|rockylinux9|rockylinux8|almalinux9|almalinux8|alpine) ]] ; then
   wget -qO- https://kasmweb-build-artifacts.s3.amazonaws.com/kasm-squid-builder/${SQUID_COMMIT}/output/kasm-squid-builder_${ARCH}.tar.gz | tar -xzf - -C /
 fi
 
 # update squid conf with user info
-if [[ "${DISTRO}" == @(centos|oracle7|oracle8|oracle9|fedora37|fedora38|almalinux8|almalinux9|rockylinux8|rockylinux9|alpine) ]]; then
+if [[ "${DISTRO}" == @(centos|oracle7|oracle8|oracle9|fedora37|fedora38|fedora39|fedora40|almalinux8|almalinux9|rockylinux8|rockylinux9|alpine) ]]; then
   useradd --system --shell /usr/sbin/nologin --home-dir /bin proxy
 elif [ "${DISTRO}" == "opensuse" ]; then
   useradd --system --shell /usr/sbin/nologin --home-dir /bin proxy
@@ -28,8 +39,15 @@ chown proxy:proxy /usr/local/squid/etc/ssl_cert -R
 chmod 700 /usr/local/squid/etc/ssl_cert -R
 cd /usr/local/squid/etc/ssl_cert
 
-if [[ "${DISTRO}" == @(fedora37|fedora38) ]]; then
+if [[ "${DISTRO}" == @(fedora37|fedora38|fedora39) ]]; then
   dnf install -y openssl1.1 xkbcomp
+  rm -f /etc/X11/xinit/xinitrc
+elif [[ "${DISTRO}" == "fedora40" ]]; then
+  curl -o \
+    /tmp/libssl.rpm -L \
+    "${RPMLIBSSL}"
+  rpm -i \
+    /tmp/libssl.rpm
   rm -f /etc/X11/xinit/xinitrc
 elif [[ "${DISTRO}" == @(rockylinux9|oracle9|almalinux9) ]]; then
   dnf install -y compat-openssl11 xkbcomp
@@ -37,9 +55,13 @@ elif [[ "${DISTRO}" == @(rockylinux9|oracle9|almalinux9) ]]; then
 elif [[ "${DISTRO}" == @(centos|oracle7) ]]; then
   yum install -y openssl11-libs
 elif [[ "${DISTRO}" == "alpine" ]]; then
-  apk add --no-cache openssl1.1-compat
-elif grep -q bookworm /etc/os-release; then
-  wget https://kasm-ci.s3.amazonaws.com/libssl1.1.${ARCH}.deb
+  if grep -q v3.19 /etc/os-release || grep -q v3.20 /etc/os-release; then
+    apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing openssl1.1-compat
+  else
+    apk add --no-cache openssl1.1-compat
+  fi
+elif grep -q bookworm /etc/os-release || grep -q noble /etc/os-release; then
+  wget ${LIBSSLURL} -O libssl1.1.${ARCH}.deb
   dpkg -i libssl1.1.${ARCH}.deb
   rm -f libssl1.1.${ARCH}.deb
 fi
@@ -60,7 +82,7 @@ chown -R proxy:proxy /etc/squid/blocked.acl
 
 if [[ "${DISTRO}" == @(centos|oracle7) ]]; then
   yum install -y memcached cyrus-sasl iproute
-elif [[ "${DISTRO}" == @(oracle8|fedora37|fedora38|oracle9|rockylinux9|rockylinux8|almalinux9|almalinux8) ]]; then
+elif [[ "${DISTRO}" == @(oracle8|fedora37|fedora38|fedora39|fedora40|oracle9|rockylinux9|rockylinux8|almalinux9|almalinux8) ]]; then
   dnf install -y memcached cyrus-sasl iproute
 elif [ "${DISTRO}" == "opensuse" ]; then
   zypper install -yn memcached cyrus-sasl iproute2 libatomic1
@@ -81,9 +103,17 @@ sasldb_path: /etc/sasl2/memcached-sasldb2
 EOL
 
 
-KASM_SQUID_ADAPTER=https://kasmweb-build-artifacts.s3.amazonaws.com/kasm_squid_adapter/6e3703800654b05f1ac00c76d02474a6c1a21d17/kasm_squid_adapter_${ARCH}_develop.6e3703.tar.gz
+COMMIT_ID="f8a1049969e7bde2fa0814eb3e5e09f4359efca1"
+BRANCH="develop"
+COMMIT_ID_SHORT=$(echo "${COMMIT_ID}" | cut -c1-6)
 
-wget -qO- ${KASM_SQUID_ADAPTER} | tar xz -C /etc/squid/
+
+if [[ "${DISTRO}" == "alpine" ]]; then
+  wget -qO- https://kasmweb-build-artifacts.s3.amazonaws.com/kasm_squid_adapter/${COMMIT_ID}/kasm_squid_adapter_alpine_${ARCH}_${BRANCH}.${COMMIT_ID_SHORT}.tar.gz | tar xz -C /etc/squid/
+else
+  wget -qO- https://kasmweb-build-artifacts.s3.amazonaws.com/kasm_squid_adapter/${COMMIT_ID}/kasm_squid_adapter_glibc_${ARCH}_${BRANCH}.${COMMIT_ID_SHORT}.tar.gz | tar xz -C /etc/squid/
+fi
+echo "${BRANCH}:${COMMIT_ID}" > /etc/squid/kasm_squid_adapter.version
 ls -la /etc/squid
 chmod +x /etc/squid/kasm_squid_adapter
 
@@ -91,7 +121,7 @@ chmod +x /etc/squid/kasm_squid_adapter
 # Install Cert utilities
 if [[ "${DISTRO}" == @(centos|oracle7) ]]; then
   yum install -y nss-tools
-elif [[ "${DISTRO}" == @(oracle8|fedora37|fedora38|oracle9|rockylinux9|rockylinux8|almalinux9|almalinux8) ]]; then
+elif [[ "${DISTRO}" == @(oracle8|fedora37|fedora38|fedora39|fedora40|oracle9|rockylinux9|rockylinux8|almalinux9|almalinux8) ]]; then
   dnf install -y nss-tools
 elif [ "${DISTRO}" == "opensuse" ]; then
   zypper install -yn mozilla-nss-tools

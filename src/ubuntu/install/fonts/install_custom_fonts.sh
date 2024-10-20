@@ -20,7 +20,7 @@ elif [[ "${DISTRO}" == "centos" ]]; then
     google-noto-emoji-fonts \
     google-noto-sans-cjk-fonts \
     google-noto-sans-fonts 
-elif [[ "${DISTRO}" == @(fedora37|fedora38) ]]; then
+elif [[ "${DISTRO}" == @(fedora37|fedora38|fedora39|fedora40) ]]; then
   dnf install -y \
     glibc-locale-source \
     google-noto-cjk-fonts \
@@ -44,7 +44,7 @@ elif [[ "${DISTRO}" == @(oracle8|oracle9|rockylinux9|rockylinux8|almalinux9|alma
   done
 elif [ "${DISTRO}" == "opensuse" ]; then
   zypper addrepo -G \
-    https://ftp.lysator.liu.se/pub/opensuse/repositories/M17N:/fonts/openSUSE_Leap_15.3/ fonts-x86_64
+    https://download.opensuse.org/repositories/M17N:/fonts/15.5/ fonts-x86_64
   zypper install -ny \
     glibc-i18ndata \
     glibc-locale \
@@ -60,7 +60,7 @@ elif [ "${DISTRO}" == "alpine" ]; then
     font-noto-all \
     font-noto-cjk \
     font-noto-emoji
-elif [[ "${DISTRO}" == @(debian|parrotos5|kali) ]]; then
+elif [[ "${DISTRO}" == @(debian|parrotos6|kali) ]]; then
   apt-get update
   apt-get install -y \
     fonts-noto-core \

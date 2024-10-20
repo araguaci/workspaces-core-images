@@ -2,15 +2,15 @@
 set -e
 
 ## Parse input ##
-NAME1=$(echo $1| awk -F'|' '{print $1}')
-NAME2=$(echo $1| awk -F'|' '{print $2}')
-BASE=$(echo $1| awk -F'|' '{print $3}')
-BG=$(echo $1| awk -F'|' '{print $4}')
-DISTRO=$(echo $1| awk -F'|' '{print $5}')
-DOCKERFILE=$(echo $1| awk -F'|' '{print $6}')
-ARCH=$2
-AWS_ID=$3
-AWS_KEY=$4
+NAME1=$1
+NAME2=$2
+BASE=$3
+BG=$4
+DISTRO=$5
+DOCKERFILE=$6
+ARCH=$7
+AWS_ID=$8
+AWS_KEY=$9
 
 # Setup aws cli
 export AWS_ACCESS_KEY_ID="${AWS_ID}"
@@ -191,7 +191,7 @@ ssh \
 ready_check
 
 # Pull tester image
-docker pull ${ORG_NAME}/kasm-tester:1.14.2
+docker pull ${ORG_NAME}/kasm-tester:1.16.0
 
 # Run test
 cp /root/.ssh/id_rsa $(dirname ${CI_PROJECT_DIR})/sshkey
@@ -213,7 +213,7 @@ docker run --rm \
   -e REPO=workspaces-core-images \
   -e AUTOMATED=true \
   -v $(dirname ${CI_PROJECT_DIR})/sshkey:/sshkey:ro  ${SLIM_FLAG} \
-  kasmweb/kasm-tester:1.14.2
+  kasmweb/kasm-tester:1.16.0
 
 # Shutdown Instances
 turnoff

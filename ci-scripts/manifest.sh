@@ -5,38 +5,54 @@ FAILED="false"
 
 # Ingest cli variables
 ## Parse input ##
-NAME1=$(echo $1| awk -F'|' '{print $1}')
-NAME2=$(echo $1| awk -F'|' '{print $2}')
-TYPE=$2
-REVERT_PIPELINE_ID=$3
-IS_ROLLING=$4
+NAME1=$1
+NAME2=$2
+TYPE=$3
+REVERT_PIPELINE_ID=$4
+IS_ROLLING=$5
 PULL_BRANCH=${SANITIZED_BRANCH}
 
 # Determine if this is a private or public build
 if [[ "${CI_COMMIT_REF_NAME}" == release/* ]] || [[ "${CI_COMMIT_REF_NAME}" == "develop" ]]; then
-  ENDPOINT="core-${NAME1}-${NAME2}"
+  if [[ "${NAME1}" == "${NAME2}" ]]; then
+    ENDPOINT="core-${NAME1}"
+  else
+    ENDPOINT="core-${NAME1}-${NAME2}"
+  fi
 else
-  ENDPOINT="core-${NAME1}-${NAME2}-private"
+  if [[ "${NAME1}" == "${NAME2}" ]]; then
+    ENDPOINT="core-${NAME1}-private"
+  else
+    ENDPOINT="core-${NAME1}-${NAME2}-private"
+  fi
 fi
 
 # Determine if this is a rolling build
-if [ "${CI_PIPELINE_SOURCE}" == "schedule" ]; then
-  SANITIZED_BRANCH=${SANITIZED_BRANCH}-rolling
+if [[ "${SCHEDULED}" != "NO" ]]; then
+  if [[ "${SCHEDULE_NAME}" == "NO" ]]; then
+    SANITIZED_BRANCH=${SANITIZED_BRANCH}-rolling
+  else
+    SANITIZED_BRANCH=${SANITIZED_BRANCH}-rolling-${SCHEDULE_NAME}
+  fi
 fi
 
 # Determine if we are doing a reversion
-if [ ! -z "${REVERT_PIPELINE_ID}" ]; then
+if [[ ! -z "${REVERT_PIPELINE_ID}" ]]; then
   # If we are reverting modify the pipeline ID to the one passed
   CI_PIPELINE_ID=${REVERT_PIPELINE_ID}
-  if [ "${IS_ROLLING}" == "true" ]; then
-    SANITIZED_BRANCH=${SANITIZED_BRANCH}-rolling
+  if [[ "${IS_ROLLING}" == "true" ]]; then
+    if [[ "${SCHEDULE_NAME}" == "NO" ]]; then
+      SANITIZED_BRANCH=${SANITIZED_BRANCH}-rolling
+    else
+      SANITIZED_BRANCH=${SANITIZED_BRANCH}-rolling-${SCHEDULE_NAME}
+    fi
   fi
 fi
 
 # Check test output
-if [ -z "${REVERT_PIPELINE_ID}" ]; then
+if [[ -z "${REVERT_PIPELINE_ID}" ]]; then
   apk add curl
-  if [ "${TYPE}" == "multi" ]; then
+  if [[ "${TYPE}" == "multi" ]]; then
     ARCHES=("x86_64" "aarch64")
   else
     ARCHES=("x86_64")
@@ -59,12 +75,12 @@ if [ -z "${REVERT_PIPELINE_ID}" ]; then
 fi
 
 # Fail job and go no further if tests did not pass
-if [ "${FAILED}" == "true" ]; then
+if [[ "${FAILED}" == "true" ]]; then
   exit 1
 fi
 
 # Manifest for multi pull and push for single arch
-if [ "${TYPE}" == "multi" ]; then
+if [[ "${TYPE}" == "multi" ]]; then
 
   # Pull images from cache repo
   docker pull ${ORG_NAME}/image-cache-private:x86_64-core-${NAME1}-${NAME2}-${PULL_BRANCH}-${CI_PIPELINE_ID}

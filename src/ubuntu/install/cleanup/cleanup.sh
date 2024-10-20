@@ -4,11 +4,14 @@ set -ex
 # Distro package cleanup
 if [[ "${DISTRO}" == @(centos|oracle7) ]] ; then
   yum clean all
-elif [[ "${DISTRO}" == @(almalinux8|almalinux9|fedora37|fedora38|oracle8|oracle9|rockylinux8|rockylinux9) ]]; then
+elif [[ "${DISTRO}" == @(almalinux8|almalinux9|fedora37|fedora38|fedora39|fedora40|oracle8|oracle9|rockylinux8|rockylinux9) ]]; then
   dnf clean all
 elif [ "${DISTRO}" == "opensuse" ]; then
   zypper clean --all
-elif [[ "${DISTRO}" == @(debian|kali|parrotos5|ubuntu) ]]; then
+elif [[ "${DISTRO}" == @(debian|kali|parrotos6|ubuntu) ]]; then
+  # Uninstall unneccesary/vulnerable packages
+  dpkg --purge ipp-usb #KASM-5266
+
   apt-get autoremove -y
   apt-get autoclean -y
 fi
@@ -59,3 +62,19 @@ rm -f \
   /etc/xdg/autostart/xfce4-screensaver.desktop \
   /etc/xdg/autostart/xfce-polkit.desktop \
   /etc/xdg/autostart/xscreensaver.desktop
+
+# Cleanup specific to KasmOS
+if [ "$1" = "kasmos" ] ; then
+  echo "Removing packages from base"
+  packages=("konsole" "geeqie" "gwenview" "imagemagick-6.q16" "kate" "dolphin")
+  for package in ${packages[@]}; do
+    if [[ $(apt -qq list "$package") ]] ; then
+      echo "Removing package $package."
+      apt remove -y ${package}
+    else
+      echo "Package ${package} not found."
+    fi
+  done
+ apt autoremove -y
+
+fi
